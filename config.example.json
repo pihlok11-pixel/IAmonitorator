@@ -1,0 +1,8 @@
+{
+  "port": 8765,
+  "lmstudio_url": "http://localhost:1234",
+  "proxy_port": 1235,
+  "projects": [],
+  "vscode_storage_dirs": [],
+  "poll_seconds": 2
+}

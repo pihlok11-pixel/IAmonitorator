@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IAmonitorator</title>
+<style>
+:root{--bg:#0f1318;--card:#171d25;--bd:#242c38;--tx:#e6edf5;--mut:#8896a8;--ok:#3fb950;--warn:#d29922;--bad:#f85149;--ac:#58a6ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px system-ui,sans-serif}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--bd)}
+h1{font-size:18px;margin:0}h2{font-size:13px;margin:0 0 10px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
+main{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;padding:16px 20px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px}.wide{grid-column:1/-1}
+.row{display:flex;justify-content:space-between;gap:10px;margin:6px 0}.mut{color:var(--mut)}
+.bar{height:8px;background:#0b0f14;border-radius:4px;overflow:hidden;margin-top:3px}.bar>i{display:block;height:100%;background:var(--ok);transition:width .4s}
+.big{font-size:26px;font-weight:600}.pill{padding:2px 8px;border-radius:99px;font-size:12px;background:#0b0f14;border:1px solid var(--bd)}
+.on{color:var(--ok)}.off{color:var(--bad)}svg{width:100%;height:46px;display:block}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:4px 6px;border-bottom:1px solid var(--bd)}th{color:var(--mut);font-weight:500}
+code{background:#0b0f14;padding:1px 6px;border-radius:4px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+</style></head><body>
+<header><h1>🖥️ IAmonitorator</h1><span id="stat" class="pill">conectando…</span></header>
+<main id="m"></main>
+<script>
+const H={cpu:[],gpu:[],tps:[]};const $=s=>document.getElementById(s);
+const f=(n,d=1)=>n==null?'–':Number(n).toLocaleString('pt-BR',{maximumFractionDigits:d});
+const col=p=>p>90?'var(--bad)':p>70?'var(--warn)':'var(--ok)';
+const bar=(l,p,r)=>`<div class="row"><span>${l}</span><span class="mut">${r||f(p,0)+'%'}</span></div><div class="bar"><i style="width:${Math.min(p||0,100)}%;background:${col(p)}"></i></div>`;
+function spark(a,max=100){if(a.length<2)return'';const w=300,h=46,s=a.map((v,i)=>`${i/(a.length-1)*w},${h-Math.min(v/max,1)*(h-2)-1}`).join(' ');
+return`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${s}" fill="none" stroke="var(--ac)" stroke-width="1.5"/></svg>`}
+const push=(k,v)=>{H[k].push(v||0);if(H[k].length>90)H[k].shift()};
+const ago=t=>{if(!t)return'–';const s=Date.now()/1000-t/ (t>1e12?1000:1);return s<60?'agora':s<3600?Math.floor(s/60)+' min':s<86400?Math.floor(s/3600)+' h':Math.floor(s/86400)+' d'};
+function render(d){
+ const s=d.system,l=d.lmstudio,t=d.tokens,v=d.dev;
+ const g=s.gpus[0];push('cpu',s.cpu.percent);if(g)push('gpu',g.util);push('tps',t.avg_tps);
+ let h='';
+ h+=`<div class="card"><h2>CPU</h2><div class="big">${f(s.cpu.percent,0)}%</div>${spark(H.cpu)}
+  <div class="row mut"><span>${s.cpu.cores} threads</span><span>${s.cpu.temp_c!=null?f(s.cpu.temp_c,0)+' °C':''}</span></div>
+  ${bar('RAM',s.ram.percent,f(s.ram.used_gb)+' / '+f(s.ram.total_gb)+' GB')}
+  ${s.disk?bar('Disco',s.disk.percent,f(s.disk.used_gb,0)+' / '+f(s.disk.total_gb,0)+' GB'):''}
+  <div class="row mut"><span>⬇ ${f(s.net.down_kbs,0)} KB/s</span><span>⬆ ${f(s.net.up_kbs,0)} KB/s</span></div></div>`;
+ h+=`<div class="card"><h2>GPU</h2>`+(g?`<div class="row"><b>${g.name}</b><span class="mut">${f(g.temp_c,0)} °C</span></div>
+  <div class="big">${f(g.util,0)}%</div>${spark(H.gpu)}
+  ${bar('VRAM',g.mem_used_mb/g.mem_total_mb*100,f(g.mem_used_mb/1024)+' / '+f(g.mem_total_mb/1024)+' GB')}
+  <div class="row mut"><span>Potência ${f(g.power_w,0)} / ${f(g.power_limit_w,0)} W</span><span>Fan ${f(g.fan,0)}% · ${f(g.clock_mhz,0)} MHz</span></div>
+  ${(g.processes||[]).map(p=>`<div class="row mut"><span>${p.name}</span><span>${f(p.mem_mb,0)} MB</span></div>`).join('')}`
+  :`<p class="mut">nvidia-smi não encontrado (GPU NVIDIA + driver necessários).</p>`)+`</div>`;
+ h+=`<div class="card"><h2>LM Studio</h2><div class="row"><span class="pill ${l.online?'on':'off'}">${l.online?'● servidor online':'● offline'}</span>
+  <span class="mut">${l.process?'RAM '+f(l.process.ram_mb/1024)+' GB':''}</span></div>`+
+  (l.online?(l.loaded.length?l.loaded.map(m=>`<div class="row"><b>${m.id}</b><span class="mut">${m.quant||''} ${m.loaded_ctx?'· ctx '+f(m.loaded_ctx,0):''}</span></div>`).join(''):'<p class="mut">Nenhum modelo carregado.</p>')
+  +`<div class="mut">${l.models.length} modelos disponíveis</div>`:`<p class="mut">Inicie o servidor local no LM Studio (aba Developer). ${l.error||''}</p>`)+`</div>`;
+ h+=`<div class="card"><h2>Tokens (via proxy)</h2><div class="grid2"><div><div class="mut">Total acumulado</div><div class="big">${f(t.total.prompt+t.total.completion,0)}</div>
+  <div class="mut">in ${f(t.total.prompt,0)} · out ${f(t.total.completion,0)}</div></div>
+  <div><div class="mut">Sessão atual</div><div class="big">${f(t.session.prompt+t.session.completion,0)}</div><div class="mut">${t.session.requests} requisições</div></div></div>
+  <div class="row"><span>Último minuto</span><b>${f(t.tokens_last_min,0)} tok</b></div>
+  <div class="row"><span>Velocidade média</span><b>${f(t.avg_tps)} tok/s</b></div>
+  <div class="row"><span>Em andamento</span><b>${t.active_requests}</b></div>${spark(H.tps,Math.max(10,...H.tps))}
+  <p class="mut" style="font-size:12px">Configure o cliente (Zoo Code) com Base URL <code>${d.proxy_url}</code></p></div>`;
+ if(t.recent.length)h+=`<div class="card wide"><h2>Últimas requisições</h2><table><tr><th>quando</th><th>modelo</th><th>prompt</th><th>resposta</th><th>tok/s</th><th>TTFT</th></tr>
+  ${t.recent.map(r=>`<tr><td>${ago(r.ts)}</td><td>${r.model||'–'}</td><td>${f(r.prompt,0)}</td><td>${f(r.completion,0)}${r.estimated?' ~':''}</td><td>${f(r.tps)}</td><td>${r.ttft!=null?f(r.ttft)+' s':'–'}</td></tr>`).join('')}</table></div>`;
+ h+=`<div class="card wide"><h2>VS Code · Zoo Code</h2><div class="row"><span class="pill ${v.vscode_running?'on':'off'}">${v.vscode_running?'● VS Code aberto':'● VS Code fechado'}</span></div>`+
+  (v.agents.length?v.agents.map(a=>`<div class="row"><b>${a.extension}</b><span class="pill ${a.active?'on':''}">${a.active?'● trabalhando':'ocioso'}</span></div>
+  <div class="mut">${a.task_count} tarefas · ${f(a.totals.requests,0)} chamadas · in ${f(a.totals.tokens_in,0)} / out ${f(a.totals.tokens_out,0)} tokens · custo $${f(a.totals.cost,2)}</div>
+  <table><tr><th>tarefa</th><th>chamadas</th><th>tokens in/out</th><th>última atividade</th></tr>${a.tasks.map(k=>`<tr><td>${k.title||k.id}</td><td>${k.requests}</td><td>${f(k.tokens_in,0)} / ${f(k.tokens_out,0)}</td><td>${ago(k.last_ts)}</td></tr>`).join('')}</table>`).join('')
+  :'<p class="mut">Nenhuma extensão de agente (tasks/) encontrada no globalStorage do VS Code. Adicione o caminho em <code>vscode_storage_dirs</code> no config.json.</p>')+`</div>`;
+ h+=`<div class="card wide"><h2>Projetos</h2>`+(v.projects.length?`<table><tr><th>projeto</th><th>branch</th><th>alterados</th><th>↑/↓</th><th>hoje</th><th>último commit</th></tr>
+  ${v.projects.map(p=>p.git?`<tr><td><b>${p.name}</b></td><td>${p.branch}</td><td style="color:${p.changed_files?'var(--warn)':'var(--ok)'}">${p.changed_files}</td><td>${p.ahead??'–'}/${p.behind??'–'}</td><td>${p.commits_today}</td><td class="mut">${p.last_commit||'sem commits'}</td></tr>`
+  :`<tr><td>${p.name}</td><td colspan=5 class="mut">não é repositório git</td></tr>`).join('')}</table>`:'<p class="mut">Nenhum projeto detectado. Liste caminhos em <code>projects</code> no config.json.</p>')+`</div>`;
+ $('m').innerHTML=h;$('stat').textContent='atualizado '+new Date().toLocaleTimeString('pt-BR');$('stat').className='pill on';
+}
+async function tick(){try{render(await (await fetch('/api/all')).json())}catch(e){$('stat').textContent='servidor offline';$('stat').className='pill off'}}
+tick();setInterval(tick,2000);
+</script></body></html>
