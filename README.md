@@ -24,4 +24,20 @@ No Zoo Code (provedor "LM Studio" ou "OpenAI Compatible") troque a Base URL para
 Copie `config.example.json` para `config.json` (porta, URL do LM Studio, `projects`, `vscode_storage_dirs`).
 
 ## Limitações
-GPU AMD/Intel não é lida (só NVIDIA). Temperatura de CPU só em Linux.
+Leitura de GPU só via `nvidia-smi` (sua RTX 2080 Ti funciona). Temperatura de CPU só em Linux.
+
+## Ver no celular
+1. Rode `python run.py` no PC. O terminal mostra um **link com token** e um **QR code** (`Celular: http://192.168.x.x:8765/?token=...`).
+2. No celular (mesmo Wi-Fi), escaneie o QR / abra o link. O token fica salvo no navegador.
+3. Instale como app: **Android (Chrome)** menu ⋮ → *Instalar app*; **iPhone (Safari)** Compartilhar → *Adicionar à Tela de Início*.
+4. Se o Windows perguntar, permita o Python no firewall para **redes privadas**.
+
+O token está em `data/token.txt` (ou defina `access_token` no config). Quem não tem o token recebe 401. Para acesso só no PC use `"host": "127.0.0.1"`.
+
+### Fora de casa (4G/5G)
+Instale o [Tailscale](https://tailscale.com) (grátis) no PC e no celular e abra `http://<ip-tailscale-do-pc>:8765/?token=...`. Não exponha a porta 8765 na internet.
+
+## Notificações no celular (ntfy)
+1. Instale o app **ntfy** (Android/iOS) e assine um tópico secreto, ex.: `iamonitor-fulano-8231`.
+2. No `config.json`: `{"ntfy_topic": "iamonitor-fulano-8231"}`.
+3. Você recebe alertas de: GPU ≥ 83 °C, VRAM ≥ 95 %, CPU/RAM no limite, LM Studio que caiu e Zoo Code que terminou/parou uma tarefa. Limites ajustáveis em `alerts`.
